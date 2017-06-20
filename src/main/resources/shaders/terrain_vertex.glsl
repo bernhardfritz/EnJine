@@ -10,9 +10,12 @@ out vec3 mvVertexPos;
 out vec2 outTexCoord;
 out vec3 mvVertexNormal;
 out mat3 TBN;
+out vec4 mlightviewVertexPos;
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
+uniform mat4 modelLightViewMatrix;
+uniform mat4 orthoProjectionMatrix;
 
 void main() {
 	vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
@@ -23,4 +26,5 @@ void main() {
     vec3 mvVertexBitangent = normalize(modelViewMatrix * vec4(vertexBitangent, 0.0)).xyz;
     TBN = transpose(mat3(mvVertexTangent, mvVertexBitangent, mvVertexNormal));
     mvVertexPos = mvPos.xyz;
+    mlightviewVertexPos = orthoProjectionMatrix * modelLightViewMatrix * vec4(position, 1.0);
 }

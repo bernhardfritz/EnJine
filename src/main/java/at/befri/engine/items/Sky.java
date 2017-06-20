@@ -80,6 +80,10 @@ public class Sky extends GameItem {
 		float theta = (float)Math.PI * (inclination - 0.5f);
 		float phi = 2f * (float)Math.PI * (azimuth - 0.5f);
 		
+		float aux = theta;
+		theta = phi;
+		phi = aux;
+		
 		Vector3f sunPosition = new Vector3f();
 		sunPosition.x = distance * (float)Math.cos(phi);
 		sunPosition.y = distance * (float)Math.sin(phi) * (float)Math.sin(theta);

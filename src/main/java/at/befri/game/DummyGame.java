@@ -14,6 +14,7 @@ import java.util.Map;
 
 import org.joml.Vector2f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import at.befri.engine.IGameLogic;
 import at.befri.engine.MouseInput;
@@ -39,7 +40,6 @@ public class DummyGame implements IGameLogic {
 	private final Renderer renderer;
 	private final Camera camera;
 	private Scene scene;
-	private float lightAngle;
 	private Gradient gradient;
 
 	private static final float MOUSE_SENSITIVITY = 0.2f;
@@ -54,7 +54,6 @@ public class DummyGame implements IGameLogic {
 		renderer = new Renderer();
 		camera = new Camera();
 		cameraInc = new Vector3f(0, 0, 0);
-		lightAngle = -90;
 		gradient = null;
 		try {
 			gradient = new Gradient("/textures/gradient2.png");
@@ -115,8 +114,32 @@ public class DummyGame implements IGameLogic {
 						new Texture("/textures/terrain/layer4/normal.png"), })
 				.setRgbaMap(new Texture("/textures/terrain/rgba_new.png")).setReflectance(0.0f));
 		GameItem gameItem3 = new GameItem(terrainMesh);
-		gameItem3.setScale(50);
-		GameItem[] gameItems = new GameItem[] { gameItem, gameItem3 };
+		gameItem3.setScale(25);
+		
+		Mesh cubeMesh = OBJLoader.loadMesh("/models/cube.obj");
+        cubeMesh.setIMaterial(
+        		new Material()
+        			.setDiffuseMap(new Texture("/textures/terrain/layer3/diffuse.png"))
+				.setNormalMap(new Texture("/textures/terrain/layer3/normal.png"))
+        			.setReflectance(1f)
+        		)
+        	;
+        GameItem cubeGameItem = new GameItem(cubeMesh);
+        cubeGameItem.setPosition(0, 0, 0);
+        cubeGameItem.setScale(0.5f);
+		
+		Mesh quadMesh = OBJLoader.loadMesh("/models/plane.obj");
+		quadMesh.setIMaterial(
+			new Material()
+				.setDiffuseMap(new Texture("/textures/terrain/layer3/diffuse.png"))
+				.setNormalMap(new Texture("/textures/terrain/layer3/normal.png"))
+				.setReflectance(1f)
+		);
+		GameItem quadGameItem = new GameItem(quadMesh);
+		quadGameItem.setPosition(0, -1, 0);
+		quadGameItem.setScale(2.5f);
+		
+		GameItem[] gameItems = new GameItem[] {gameItem, gameItem3, quadGameItem};
 		scene.setGameItems(gameItems);
 
 		scene.getFog().setColor(new Vector3f(0.5f, 0.5f, 0.5f)).setDensity(0.025f);
@@ -156,9 +179,13 @@ public class DummyGame implements IGameLogic {
 		SpotLight spotLight = new SpotLight(pointLight, coneDir, cutOff);
 		sceneLight.setSpotLightList(new SpotLight[] { spotLight, new SpotLight(spotLight) });
 
-		lightPosition = new Vector3f(-1, 0, 0);
+		Vector3f lightDirection = new Vector3f(0, 1, 1);
 		lightColor = new Vector3f(1, 1, 1);
-		sceneLight.setDirectionalLight(new DirectionalLight(lightPosition, lightColor, lightIntensity));
+		sceneLight.setDirectionalLight(
+			new DirectionalLight(lightDirection, lightColor, lightIntensity)
+				.setShadowPosMult(5f)
+				.setOrthoCoords(-10.0f, 10.0f, -10.0f, 10.0f, -1.0f, 20.0f)
+		);
 	}
 
 	@Override

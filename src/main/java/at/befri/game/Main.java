@@ -13,7 +13,5 @@ public class Main {
 
 /*
  * TODO:
- * Do proper normal mapping using tangent space
- * https://learnopengl.com/#!Advanced-Lighting/Normal-Mapping
  * Add functionality to detect file changes and update textures accordingly
  */

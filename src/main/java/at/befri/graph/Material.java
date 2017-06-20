@@ -18,6 +18,13 @@ public class Material implements IMaterial {
 		reflectance = 0f;
 	}
 	
+	public Material setColor(Vector4f color) {
+		ambientColor = color;
+		diffuseColor = color;
+		specularColor = color;
+		return this;
+	}
+	
 	public Vector4f getAmbientColor() {
 		return ambientColor;
 	}

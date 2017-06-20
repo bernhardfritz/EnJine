@@ -8,6 +8,7 @@ in vec3 mvVertexPos;
 in vec2 outTexCoord;
 in vec3 mvVertexNormal;
 in mat3 TBN;
+in vec4 mlightviewVertexPos;
 
 out vec4 fragColor;
 
@@ -54,6 +55,7 @@ struct Fog {
 uniform sampler2D diffuseMaps[MAX_LAYERS];
 uniform sampler2D normalMaps[MAX_LAYERS];
 uniform sampler2D rgbaMap;
+uniform sampler2D shadowMap;
 uniform vec3 ambientLight;
 uniform float specularPower;
 uniform MultilayeredMaterial multilayeredMaterial;
@@ -188,6 +190,29 @@ vec3 calcNormal(MultilayeredMaterial multilayeredMaterial, vec3 normal, vec2 tex
 	return newNormal;
 }
 
+float calcShadow(vec4 position) {
+    vec3 projCoords = position.xyz;
+    // Transform from screen coordinates to texture coordinates
+    projCoords = projCoords * 0.5 + 0.5;
+    float bias = 0.05;
+
+    float shadowFactor = 0.0;
+    vec2 inc = 1.0 / textureSize(shadowMap, 0);
+    for (int row = -1; row <= 1; ++row) {
+        for (int col = -1; col <= 1; ++col) {
+            float textDepth = texture(shadowMap, projCoords.xy + vec2(row, col) * inc).r; 
+            shadowFactor += projCoords.z - bias > textDepth ? 1.0 : 0.0;        
+        }    
+    }
+    shadowFactor /= 9.0;
+
+    if (projCoords.z > 1.0) {
+        shadowFactor = 1.0;
+    }
+
+    return 1 - shadowFactor;
+}
+
 void main() {
 	setupColors(multilayeredMaterial, outTexCoord);
 	
@@ -207,7 +232,8 @@ void main() {
 		}
 	}
 	
-	fragColor = clamp(ambientC * vec4(ambientLight, 1) + diffuseSpecularComp, 0, 1);
+	float shadow = calcShadow(mlightviewVertexPos);
+	fragColor = clamp(ambientC * vec4(ambientLight, 1) + diffuseSpecularComp * shadow, 0, 1);
 	
 	if (fog.density > 0) {
 		fragColor = calcFog(mvVertexPos, fragColor, fog, ambientLight, directionalLight);

@@ -5,12 +5,17 @@ import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glViewport;
 
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL30.*;
+
 import java.util.List;
 import java.util.Map;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import org.lwjgl.glfw.GLFW;
 
 import at.befri.engine.Scene;
 import at.befri.engine.SceneLight;
@@ -22,6 +27,7 @@ import at.befri.graph.Camera;
 import at.befri.graph.Mesh;
 import at.befri.graph.MultilayeredMaterial;
 import at.befri.graph.ShaderProgram;
+import at.befri.graph.ShadowMap;
 import at.befri.graph.Transformation;
 import at.befri.graph.lights.DirectionalLight;
 import at.befri.graph.lights.PointLight;
@@ -34,6 +40,9 @@ public class Renderer {
 	private static final int MAX_POINT_LIGHTS = 5;
 	private static final int MAX_SPOT_LIGHTS = 5;
 	
+	private ShadowMap shadowMap;
+	
+	private ShaderProgram depthShaderProgram;
 	private ShaderProgram skyShaderProgram;
 	private ShaderProgram terrainShaderProgram;
 	private ShaderProgram sceneShaderProgram;
@@ -46,9 +55,24 @@ public class Renderer {
 	}
 
 	public void init(Window window) throws Exception {
+		shadowMap = new ShadowMap();
+		
+		setupDepthShader();
 		setupSkyShader();
 		setupTerrainShader();
 		setupSceneShader();
+	}
+	
+	private void setupDepthShader() throws Exception {
+		// Create shader
+		depthShaderProgram = new ShaderProgram();
+		depthShaderProgram.createVertexShader(Utils.loadResource("/shaders/depth_vertex.glsl"));
+		depthShaderProgram.createFragmentShader(Utils.loadResource("/shaders/depth_fragment.glsl"));
+		depthShaderProgram.link();
+		
+		// Create uniforms
+		depthShaderProgram.createUniform("orthoProjectionMatrix");
+		depthShaderProgram.createUniform("modelLightViewMatrix");
 	}
 	
 	private void setupSkyShader() throws Exception {
@@ -100,6 +124,11 @@ public class Renderer {
 		
 		// Create fog uniform
 		terrainShaderProgram.createFogUniform("fog");
+		
+		// Create uniforms for shadow mapping
+		terrainShaderProgram.createUniform("shadowMap");
+		terrainShaderProgram.createUniform("orthoProjectionMatrix");
+		terrainShaderProgram.createUniform("modelLightViewMatrix");
 	}
 	
 	private void setupSceneShader() throws Exception {
@@ -127,6 +156,11 @@ public class Renderer {
 		
 		// Create fog uniform
 		sceneShaderProgram.createFogUniform("fog");
+		
+		// Create uniforms for shadow mapping
+		sceneShaderProgram.createUniform("shadowMap");
+		sceneShaderProgram.createUniform("orthoProjectionMatrix");
+		sceneShaderProgram.createUniform("modelLightViewMatrix");
 	}
 	
 	public void clear() {
@@ -136,10 +170,15 @@ public class Renderer {
 	public void render(Window window, Camera camera, Scene scene) {
 		clear();
 		
-		if (window.isResized()) {
-			glViewport(0, 0, window.getWidth(), window.getHeight());
-			window.setResized(false);
-		}
+		// Render depth map before view ports has been set up
+		renderDepthMap(window, camera, scene);
+		
+		glViewport(0, 0, window.getWidth(), window.getHeight());
+		
+//		if (window.isResized()) {
+//			glViewport(0, 0, window.getWidth(), window.getHeight());
+//			window.setResized(false);
+//		}
 		
 		// Update projectionMatrix
 		transformation.updateProjectionMatrix(FOV, window.getWidth(), window.getHeight(), Z_NEAR, Z_FAR);
@@ -149,9 +188,43 @@ public class Renderer {
 		
 		renderScene(window, camera, scene);
 		
-		renderTerrain(window, camera, scene);
+		if (scene.getTerrain() != null) {			
+			renderTerrain(window, camera, scene);
+		}
 		
 		renderSky(window, camera, scene);
+	}
+	
+	private void renderDepthMap(Window window, Camera camera, Scene scene) {
+		// Setup view port to match the texture size
+		glBindFramebuffer(GL_FRAMEBUFFER, shadowMap.getDepthMapFBO());
+		glViewport(0, 0, ShadowMap.SHADOW_MAP_WIDTH, ShadowMap.SHADOW_MAP_HEIGHT);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		
+		depthShaderProgram.bind();
+		
+		DirectionalLight light = scene.getSceneLight().getDirectionalLight();
+		Vector3f lightDirection = light.getDirection();
+		
+		float lightAngleX = (float) Math.toDegrees(Math.acos(lightDirection.z));
+		float lightAngleY = (float) Math.toDegrees(Math.asin(lightDirection.x));
+		float lightAngleZ = 0;
+		Matrix4f lightViewMatrix = transformation.updateLightViewMatrix(new Vector3f(lightDirection).mul(light.getShadowPosMult()), new Vector3f(lightAngleX, lightAngleY, lightAngleZ));
+		DirectionalLight.OrthoCoords orthoCoords = light.getOrthoCoords();
+		Matrix4f orthoProjMatrix = transformation.updateOrthoProjectionMatrix(orthoCoords.left, orthoCoords.right, orthoCoords.bottom, orthoCoords.top, orthoCoords.near, orthoCoords.far);
+		
+		depthShaderProgram.setUniform("orthoProjectionMatrix", orthoProjMatrix);
+		Map<Mesh, List<GameItem>> mapMeshes = scene.getGameMeshes();
+		for (Mesh mesh : mapMeshes.keySet()) {
+			mesh.renderList(mapMeshes.get(mesh), (GameItem gameItem) -> {
+				Matrix4f modelLightViewMatrix = transformation.buildModelViewMatrix(gameItem, lightViewMatrix);
+				depthShaderProgram.setUniform("modelLightViewMatrix", modelLightViewMatrix);
+			});
+		}
+		
+		// Unbind
+		depthShaderProgram.unbind();
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 	
 	private void renderSky(Window window, Camera camera, Scene scene) {
@@ -198,6 +271,9 @@ public class Renderer {
 		
 		Matrix4f projectionMatrix = transformation.getProjectionMatrix();
 		terrainShaderProgram.setUniform("projectionMatrix", projectionMatrix);
+		Matrix4f orthoProjMatrix = transformation.getOrthoProjectionMatrix();
+		terrainShaderProgram.setUniform("orthoProjectionMatrix", orthoProjMatrix);
+		Matrix4f lightViewMatrix = transformation.getLightViewMatrix();
 		
 		Matrix4f viewMatrix = transformation.getViewMatrix();
 		
@@ -211,15 +287,21 @@ public class Renderer {
 		}
 		terrainShaderProgram.setUniform("rgbaMap", MultilayeredMaterial.MAX_LAYERS * 2);
 		
+		terrainShaderProgram.setUniform("shadowMap", MultilayeredMaterial.MAX_LAYERS * 2 + 1);
+		
 		terrainShaderProgram.setUniform("fog", scene.getFog());
 		
 		// Render terrain mesh
 		GameItem terrain = scene.getTerrain();
 		Mesh terrainMesh = terrain.getMesh();
 		terrainShaderProgram.setUniform("multilayeredMaterial", terrainMesh.getIMaterial());
+		glActiveTexture(GL_TEXTURE0 + MultilayeredMaterial.MAX_LAYERS * 2 + 1);
+		glBindTexture(GL_TEXTURE_2D, shadowMap.getDepthMapTexture().getId());
 		// Set model view matrix
 		Matrix4f modelViewMatrix = transformation.buildModelViewMatrix(terrain, viewMatrix);
-		terrainShaderProgram.setUniform("modelViewMatrix", modelViewMatrix);				
+		terrainShaderProgram.setUniform("modelViewMatrix", modelViewMatrix);	
+		Matrix4f modelLightViewMatrix = transformation.buildModelLightViewMatrix(terrain, lightViewMatrix);
+		terrainShaderProgram.setUniform("modelLightViewMatrix", modelLightViewMatrix);
 		terrainMesh.render();
 		
 		terrainShaderProgram.unbind();
@@ -230,6 +312,9 @@ public class Renderer {
 		
 		Matrix4f projectionMatrix = transformation.getProjectionMatrix();
 		sceneShaderProgram.setUniform("projectionMatrix", projectionMatrix);
+		Matrix4f orthoProjMatrix = transformation.getOrthoProjectionMatrix();
+		sceneShaderProgram.setUniform("orthoProjectionMatrix", orthoProjMatrix);
+		Matrix4f lightViewMatrix = transformation.getLightViewMatrix();
 		
 		Matrix4f viewMatrix = transformation.getViewMatrix();
 		
@@ -239,6 +324,7 @@ public class Renderer {
 		
 		sceneShaderProgram.setUniform("diffuseMap", 0);
 		sceneShaderProgram.setUniform("normalMap", 1);
+		sceneShaderProgram.setUniform("shadowMap", 2);
 		
 		sceneShaderProgram.setUniform("fog", scene.getFog());
 		
@@ -246,10 +332,14 @@ public class Renderer {
 		Map<Mesh, List<GameItem>> mapMeshes = scene.getGameMeshes();
 		for (Mesh mesh : mapMeshes.keySet()) {
 			sceneShaderProgram.setUniform("material", mesh.getIMaterial());
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, shadowMap.getDepthMapTexture().getId());
 			mesh.renderList(mapMeshes.get(mesh), gameItem -> {
 				// Set model view matrix for this gameItem
 				Matrix4f modelViewMatrix = transformation.buildModelViewMatrix(gameItem, viewMatrix);
-				sceneShaderProgram.setUniform("modelViewMatrix", modelViewMatrix);				
+				sceneShaderProgram.setUniform("modelViewMatrix", modelViewMatrix);
+				Matrix4f modelLightViewMatrix = transformation.buildModelLightViewMatrix(gameItem, lightViewMatrix);
+				sceneShaderProgram.setUniform("modelLightViewMatrix", modelLightViewMatrix);
 			});
 		}
 		
