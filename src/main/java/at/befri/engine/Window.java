@@ -4,11 +4,16 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
+import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
 
 public class Window {
+	public static final float FOV = (float) Math.toRadians(60.0f); // Field of View in Radians
+	public static final float Z_NEAR = 0.01f; // Distance to the near plane
+    public static final float Z_FAR = 2_000_000f; // Distance to the far plane
+	
 	private final String title;
 	private int width;
 	private int height;
@@ -16,6 +21,7 @@ public class Window {
 	
 	private long windowHandle;
 	private boolean resized;
+	private Matrix4f projectionMatrix;
 	
 	public Window(String title, int width, int height, boolean vSync) {
 		this.title = title;
@@ -23,6 +29,7 @@ public class Window {
 		this.height = height;
 		this.vSync = vSync;
 		this.resized = false;
+		this.projectionMatrix = new Matrix4f();
 	}
 	
 	public void init() {
@@ -46,6 +53,16 @@ public class Window {
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
         
+        boolean maximized = false;
+        // If no size has been specified set it to maximized state
+        if (width == 0 || height == 0) {
+            // Set up a fixed width and height so window initialization does not fail
+            width = 100;
+            height = 100;
+            glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+            maximized = true;
+        }
+        
         // Create the window
      	windowHandle = glfwCreateWindow(width, height, title, NULL, NULL);
      	if (windowHandle == NULL) {     		
@@ -66,16 +83,17 @@ public class Window {
      		}
      	});
      	
-     	// Get the resolution of the primary monitor
-		GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+     	if (!maximized) {
+            // Get the resolution of the primary monitor
+            GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+            // Center our window
+            glfwSetWindowPos(
+                    windowHandle,
+                    (vidmode.width() - width) / 2,
+                    (vidmode.height() - height) / 2
+            );
+        }
 
-		// Center the window
-		glfwSetWindowPos(
-			windowHandle,
-			(vidmode.width() - width) / 2,
-			(vidmode.height() - height) / 2
-		);
-		
 		// Make the OpenGL context current
 		glfwMakeContextCurrent(windowHandle);
 		
@@ -159,4 +177,18 @@ public class Window {
 	public void setResized(boolean resized) {
 		this.resized = resized;
 	}
+
+	public Matrix4f getProjectionMatrix() {
+        return projectionMatrix;
+    }
+
+    public Matrix4f updateProjectionMatrix() {
+        float aspectRatio = (float) width / (float) height;
+        return projectionMatrix.setPerspective(FOV, aspectRatio, Z_NEAR, Z_FAR);
+    }
+
+    public static Matrix4f updateProjectionMatrix(Matrix4f matrix, int width, int height) {
+        float aspectRatio = (float) width / (float) height;
+        return matrix.setPerspective(FOV, aspectRatio, Z_NEAR, Z_FAR);
+    }
 }

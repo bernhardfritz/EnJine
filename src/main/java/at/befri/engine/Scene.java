@@ -17,10 +17,12 @@ public class Scene {
 	private Sky sky;
 	private SceneLight sceneLight;
 	private Fog fog;
+	private boolean renderShadows;
 
 	public Scene() {
 		meshMap = new HashMap<>();
 		fog = new Fog();
+		renderShadows = true;
 	}
 
 	public Map<Mesh, List<GameItem>> getGameMeshes() {
@@ -68,5 +70,13 @@ public class Scene {
 
 	public Fog getFog() {
 		return fog;
+	}
+
+	public boolean isRenderShadows() {
+		return renderShadows;
+	}
+
+	public void setRenderShadows(boolean renderShadows) {
+		this.renderShadows = renderShadows;
 	}
 }

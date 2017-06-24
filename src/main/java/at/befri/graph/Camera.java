@@ -1,14 +1,17 @@
 package at.befri.graph;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 public class Camera {
 	private final Vector3f position;
 	private final Vector3f rotation;
+	private Matrix4f viewMatrix;
 	
 	public Camera() {
 		position = new Vector3f(0, 0, 0);
 		rotation = new Vector3f(0, 0, 0);
+		viewMatrix = new Matrix4f();
 	}
 	
 	public Vector3f getPosition() {
@@ -49,5 +52,13 @@ public class Camera {
 			rotation.z += z;
 		}
 		return this;
+	}
+
+	public Matrix4f getViewMatrix() {
+		return viewMatrix;
+	}
+	
+	public Matrix4f updateViewMatrix() {
+		return Transformation.updateGenericViewMatrix(position, rotation, viewMatrix);
 	}
 }

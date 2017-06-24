@@ -33,6 +33,7 @@ import org.joml.Vector3f;
 import org.lwjgl.system.MemoryUtil;
 
 import at.befri.engine.items.GameItem;
+import at.befri.graph.shadow.ShadowRenderer;
 
 public class Mesh {
 	private final int vaoId;
@@ -481,7 +482,7 @@ public class Mesh {
 					Texture diffuseMap = diffuseMaps[i];
 					if (diffuseMap != null) {
 						// Activate texture bank
-						glActiveTexture(GL_TEXTURE0 + i * 2 + 0);
+						glActiveTexture(GL_TEXTURE0 + ShadowRenderer.NUM_CASCADES + i * 2 + 0);
 						// Bind the texture
 						glBindTexture(GL_TEXTURE_2D, diffuseMap.getId());
 					}
@@ -490,7 +491,7 @@ public class Mesh {
 					Texture normalMap = normalMaps[i];
 					if (normalMap != null) {
 						// Activate texture bank
-						glActiveTexture(GL_TEXTURE0 + i * 2 + 1);
+						glActiveTexture(GL_TEXTURE0 + ShadowRenderer.NUM_CASCADES + i * 2 + 1);
 						// Bind the texture
 						glBindTexture(GL_TEXTURE_2D, normalMap.getId());
 					}
@@ -499,7 +500,7 @@ public class Mesh {
 
 			if (multilayeredMaterial.hasRgbaMap()) {
 				Texture rgbaMap = multilayeredMaterial.getRgbaMap();
-				glActiveTexture(GL_TEXTURE0 + 10);
+				glActiveTexture(GL_TEXTURE0 + ShadowRenderer.NUM_CASCADES + 10);
 				glBindTexture(GL_TEXTURE_2D, rgbaMap.getId());
 			}
 		} else {
@@ -507,14 +508,14 @@ public class Mesh {
 			Texture diffuseMap = material.getDiffuseMap();
 			if (diffuseMap != null) {
 				// Activate texture bank
-				glActiveTexture(GL_TEXTURE0 + 0);
+				glActiveTexture(GL_TEXTURE0 + ShadowRenderer.NUM_CASCADES + 0);
 				// Bind the texture
 				glBindTexture(GL_TEXTURE_2D, diffuseMap.getId());
 			}
 			Texture normalMap = material.getNormalMap();
 			if (normalMap != null) {
 				// Activate texture bank
-				glActiveTexture(GL_TEXTURE0 + 1);
+				glActiveTexture(GL_TEXTURE0 + ShadowRenderer.NUM_CASCADES + 1);
 				// Bind the texture
 				glBindTexture(GL_TEXTURE_2D, normalMap.getId());
 			}

@@ -49,6 +49,8 @@ public class DummyGame implements IGameLogic {
 	private float spotAngle = 0;
 	private float spotInc = 1;
 	private float azimuth = 0.0f;
+	private boolean firstTime;
+	private boolean sceneChanged;
 
 	public DummyGame() {
 		renderer = new Renderer();
@@ -59,6 +61,7 @@ public class DummyGame implements IGameLogic {
 			gradient = new Gradient("/textures/gradient2.png");
 		} catch (Exception e) {
 		}
+		firstTime = true;
 	}
 
 	@Override
@@ -66,6 +69,9 @@ public class DummyGame implements IGameLogic {
 		renderer.init(window);
 
 		scene = new Scene();
+		
+		// Shadows
+        scene.setRenderShadows(true);
 
 		// Setup game items
 		// float reflectance = 1f;
@@ -190,31 +196,40 @@ public class DummyGame implements IGameLogic {
 
 	@Override
 	public void input(Window window, MouseInput mouseInput) {
+		sceneChanged = false;
 		cameraInc.set(0, 0, 0);
 		if (window.isKeyPressed(GLFW_KEY_W)) {
+			sceneChanged = true;
 			cameraInc.z = -1;
 		} else if (window.isKeyPressed(GLFW_KEY_S)) {
+			sceneChanged = true;
 			cameraInc.z = 1;
 		}
 		if (window.isKeyPressed(GLFW_KEY_A)) {
+			sceneChanged = true;
 			cameraInc.x = -1;
 		} else if (window.isKeyPressed(GLFW_KEY_D)) {
+			sceneChanged = true;
 			cameraInc.x = 1;
 		}
 		if (window.isKeyPressed(GLFW_KEY_Z)) {
+			sceneChanged = true;
 			cameraInc.y = -1;
 		} else if (window.isKeyPressed(GLFW_KEY_X)) {
+			sceneChanged = true;
 			cameraInc.y = 1;
 		}
 		SceneLight sceneLight = scene.getSceneLight();
 		SpotLight[] spotLightList = sceneLight.getSpotLightList();
 		if (window.isKeyPressed(GLFW_KEY_N)) {
+			sceneChanged = true;
 			spotLightList[0].getPointLight().getPosition().z += 0.1f;
 			azimuth += 0.001f;
 			if (azimuth > 1.0f) {
 				azimuth = 0.0f;
 			}
 		} else if (window.isKeyPressed(GLFW_KEY_M)) {
+			sceneChanged = true;
 			spotLightList[0].getPointLight().getPosition().z -= 0.1f;
 			azimuth -= 0.001f;
 			if (azimuth < 0.0f) {
@@ -283,11 +298,18 @@ public class DummyGame implements IGameLogic {
 			directionalLight.getDirection().negate();
 		}
 		directionalLight.setColor(gradient.getColor(azimuth));
+		
+		// Update view matrix
+        camera.updateViewMatrix();
 	}
 
 	@Override
 	public void render(Window window) {
-		renderer.render(window, camera, scene);
+		if (firstTime) {
+            sceneChanged = true;
+            firstTime = false;
+        }
+		renderer.render(window, camera, scene, sceneChanged);
 	}
 
 	@Override

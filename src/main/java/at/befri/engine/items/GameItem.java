@@ -1,5 +1,6 @@
 package at.befri.engine.items;
 
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import at.befri.graph.Mesh;
@@ -7,13 +8,13 @@ import at.befri.graph.Mesh;
 public class GameItem {
 	private final Mesh mesh;
 	private final Vector3f position;
-	private final Vector3f rotation;
+	private final Quaternionf rotation;
 	private float scale;
 	
 	public GameItem(Mesh mesh) {
 		this.mesh = mesh;
 		position = new Vector3f(0, 0, 0);
-		rotation = new Vector3f(0, 0, 0);
+		rotation = new Quaternionf();
 		scale = 1;
 	}
 	
@@ -31,15 +32,13 @@ public class GameItem {
 		this.position.z = z;
 	}
 	
-	public Vector3f getRotation() {
+	public Quaternionf getRotation() {
 		return rotation;
 	}
 	
-	public void setRotation(float x, float y, float z) {
-		this.rotation.x = x;
-		this.rotation.y = y;
-		this.rotation.z = z;
-	}
+	public final void setRotation(Quaternionf q) {
+        this.rotation.set(q);
+    }
 	
 	public float getScale() {
 		return scale;
